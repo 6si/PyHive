@@ -212,7 +212,7 @@ class Connection(object):
             )
 
         username = username or getpass.getuser()
-        configuration = configuration or {}
+        configuration = dict(configuration or {})
 
         if (password is not None) != (auth in ('LDAP', 'CUSTOM')):
             raise ValueError("Password should be set if and only if in LDAP or CUSTOM mode; "
@@ -238,16 +238,15 @@ class Connection(object):
                 port = 10000
             if auth is None:
                 auth = 'NONE'
-            if configuration.get('use_ssl', False):
+            if configuration.pop('use_ssl', False):
                 _logger.info("Using SSL for Hive connection")
+                ca_certs_dir = configuration.pop('ca_certs_dir', '/etc/ssl/certs/')
+                ssl_check_hostname = configuration.pop('ssl_check_hostname', "true")
                 hive_ssl_context = create_default_context()
-                hive_ssl_context.load_verify_locations(capath=configuration.get('ca_certs_dir', '/etc/ssl/certs/'))
-                hive_ssl_context.check_hostname = check_hostname == configuration.get('ssl_check_hostname', "true")
+                hive_ssl_context.load_verify_locations(capath=ca_certs_dir)
+                hive_ssl_context.check_hostname = check_hostname == ssl_check_hostname
                 socket = thrift.transport.TSSLSocket.TSSLSocket(host, port, ssl_context=hive_ssl_context,
                                                                 socket_keepalive=thrift_keepalive)
-                configuration.pop("use_ssl", None)
-                configuration.pop("ca_certs_dir", None)
-                configuration.pop("ssl_check_hostname", None)
             else:
                 _logger.info("Using Non-SSL for Hive connection")
                 socket = thrift.transport.TSocket.TSocket(host, port, socket_keepalive=thrift_keepalive)
